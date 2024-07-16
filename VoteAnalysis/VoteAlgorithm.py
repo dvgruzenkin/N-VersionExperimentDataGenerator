@@ -6,7 +6,6 @@ Experiment is carried out in Denis V. Gruzenkin PhD thesis writing.
 import inspect
 import json
 import os
-# from accessify import private
 
 from data_base_connector import DBConnector
 from data_generator import NResult

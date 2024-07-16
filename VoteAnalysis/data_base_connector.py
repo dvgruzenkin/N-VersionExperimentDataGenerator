@@ -46,7 +46,7 @@ class DBConnector(metaclass=DBConnectorMeta):
         """
         It executes query string with or without parameters and commit and return query set if it is necessary
         :param query_str: SQL-query string for execution
-        :param parameters: list ot tuples query parameters, by default is empty
+        :param parameters: list or tuples query parameters, by default is empty
         :param commit: Is needed commit query flag, by default is False
         :param return_query_set: Is needed return query set flag, by default is True
         :return: SQL query set or None
