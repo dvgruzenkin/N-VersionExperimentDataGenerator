@@ -34,7 +34,7 @@ def add_module(modules_list):
     print(f'Module "{name}" was successfully added to the list!')
 
 def load_module(modules_list):
-    module = NModule('NoName', 6)
+    module = NModule(name = 'NoName')
     module.load_module()
     modules_list.append(module)
 
@@ -120,7 +120,6 @@ def main():
                     generate_data = modules_list[current_module_index].generate_experiment_data(iterations, exp_name)
                     if generate_data is not None:
                         print('Experiment data was generated successfully!')
-                        print(generate_data, '\n')
                         experiments_names_list.append(exp_name)
                     else:
                         print('Error occurred during experiment data generation.')

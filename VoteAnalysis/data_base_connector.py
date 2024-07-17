@@ -51,48 +51,36 @@ class DBConnector(metaclass=DBConnectorMeta):
         :param return_query_set: Is needed return query set flag, by default is True
         :return: SQL query set or None
         """
-        many_parameters = False
-        if len(parameters) > 0:
-            # Если в качестве параметров передан список или кортеж, содержащий составной тип,
-            prev_param_len = len(parameters[0])
-            for param in parameters:
-                if type(param) not in (tuple, list) or prev_param_len != len(param):
-                    break
-                prev_param_len = len(param)
-            else:  # то считаем, что в запрос передано множество параметров (скорее всего на вставку)
-                many_parameters = True
-
         cursor = self._connection.cursor()
+        many_parameters = len(parameters) > 0 and isinstance(parameters[0], (tuple, list))
 
-        if many_parameters:
-            cursor.executemany(query_str, parameters)
-        else:
-            cursor.execute(query_str)
+        try:
+            if many_parameters:
+                cursor.executemany(query_str, parameters)
+            else:
+                cursor.execute(query_str, parameters)
 
-        if commit:
-            self._connection.commit()
+            if commit:
+                self._connection.commit()
 
-        result = None
-        if return_query_set:
-            # Если выполняется запрос на вставку, и необходимо вернуть результат, то возвращаем id добавленной строки
-            query_lst = query_str.lower().split(' ')
-            if query_lst[0] == 'insert' and self.table_exists(query_lst[2]):
-                # Форма запроса на вставку: insert into table_name
-                #                              0     1      2
-                # Соответственно имя таблицы будет под индексом 2
-                cursor.execute(f'SELECT id FROM {query_lst[2]} WHERE rowid=last_insert_rowid();')
-            result = cursor.fetchall()
+            if return_query_set:
+                if 'insert' in query_str.lower():
+                    table_name = query_str.split()[2]
+                    if self.table_exists(table_name):
+                        cursor.execute(f'SELECT id FROM {table_name} WHERE rowid=last_insert_rowid();')
+                return cursor.fetchall()
 
-        cursor.close()
-
-        return result
+        except sqlite3.Error as e:
+            print(f"SQLite error: {e.args[0]}")
+            print("Query string:", query_str)
+            print("Parameters:", parameters)
+            raise
+        finally:
+            cursor.close()
 
     def table_exists(self, table_name: str) -> bool:
         check_query = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}';"
-        result = False
-        if len(self.execute_query(check_query)) > 0:
-            result = True
-        return result
+        return len(self.execute_query(check_query)) > 0
 
     def __str__(self):
         return f'{self._db_name} – {str(self._connection)}'
