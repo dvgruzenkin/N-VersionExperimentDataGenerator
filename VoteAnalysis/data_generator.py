@@ -6,8 +6,9 @@ Experiment is carried out in Denis V. Gruzenkin PhD thesis writing.
 
 import json
 from math import sqrt
+from utils import input_num
 from random import random, uniform, normalvariate
-from typing import List, Set, Tuple, Union
+from typing import List, Set, Tuple
 
 from data_base_connector import DBConnector
 
@@ -19,37 +20,6 @@ __version__ = "1.0.0"
 __maintainer__ = "Denis V. Gruzenkin"
 __email__ = "gruzenkin.denis@good-look.su"
 __status__ = "Production"
-
-
-def input_num(user_str: str = 'Please enter number', limit: Tuple[float, float] = (float('-inf'), float('inf')),
-              target_type: type = int, included_borders: bool = False, round_to: int = 6) -> Union[int, float]:
-    """
-    Prompt the user to enter a number within specified limits and convert it to the target type.
-
-    :param user_str: Prompt message for the user.
-    :param limit: Tuple representing the inclusive limits for the number.
-    :param target_type: Type to which the input should be converted, default is int.
-    :param included_borders: Flag indicating whether the borders are included in the limit.
-    :param round_to: Number of decimal places to round to.
-    :return: The user input converted to the target type and rounded.
-    """
-    incorrect_val = True
-    while incorrect_val:
-        try:
-            user_num = target_type(input(user_str))
-            if (limit[0] >= user_num >= limit[1] and not included_borders) or \
-                    (limit[0] > user_num > limit[1] and included_borders):
-                raise ValueError(f'Expected value from {limit[0]} to {limit[1]}')
-        except ValueError as err:
-            print(f'Entered value is incorrect! {err}')
-            incorrect_val = True
-        except Exception as err:
-            print(f'Unknown error! {err}')
-            incorrect_val = True
-        else:
-            user_num = round(user_num, round_to)
-            incorrect_val = False
-    return user_num
 
 
 class NVersion:
@@ -70,12 +40,11 @@ class NVersion:
         :param dynamic_diversities: List of tuples representing dynamic diversities.
         :param reliability: Reliability metric for the version.
         """
-        if dynamic_diversities is None:
-            dynamic_diversities = []
+
         self._id = n_id
         self._name = name
         self._const_diversities = const_diversities
-        self._dynamic_diversities = dynamic_diversities
+        self._dynamic_diversities = dynamic_diversities or []
         self._reliability = reliability
 
     @property
@@ -163,7 +132,7 @@ class NVersion:
             if module_id is not None:
                 additional_query_str = f', {module_id}'
 
-            insert_query = f"insert into version (name, const_diversities_coordinates, dynamic_diversities_coordinates,"
+            insert_query = "insert into version (name, const_diversities_coordinates, dynamic_diversities_coordinates,"
             insert_query += f" reliability, module) values ('{self._name}', "
             insert_query += f"'{json.dumps({self.formal_json_db_lst_name: self._const_diversities})}', "
             insert_query += f"'{json.dumps({self.formal_json_db_lst_name: self._dynamic_diversities})}', "
@@ -173,9 +142,9 @@ class NVersion:
             self._id = int(cur_conn.execute_query(insert_query, [], True)[0][0])
         else:
             update_query = f"update version set name = '{self.name}', "
-            update_query += f"const_diversities_coordinates = "
+            update_query += "const_diversities_coordinates = "
             update_query += f"'{json.dumps({self.formal_json_db_lst_name: self._const_diversities})}', "
-            update_query += f"dynamic_diversities_coordinates = "
+            update_query += "dynamic_diversities_coordinates = "
             update_query += f"'{json.dumps({self.formal_json_db_lst_name: self._dynamic_diversities})}', "
             update_query += f"reliability = {self._reliability}, module = {module_id} where id = {self._id};"
             cur_conn.execute_query(update_query, [], True, False)
@@ -195,7 +164,7 @@ class NVersion:
             else:
                 chosen_id = self._id
 
-            select_query = f'select id, name, const_diversities_coordinates, dynamic_diversities_coordinates, '
+            select_query = 'select id, name, const_diversities_coordinates, dynamic_diversities_coordinates, '
             select_query += f'reliability, module from version where id = {chosen_id}'
             select_res = cur_conn.execute_query(select_query)
 
@@ -212,10 +181,10 @@ class NVersion:
 
     @classmethod
     def load_versions_2_module(cls, module_id: int):
-        if module_id is not None and type(module_id) == int:
+        if module_id is not None and isinstance(module_id, int):
             cur_conn = DBConnector(cls.db_name)
             if cur_conn.table_exists('version'):
-                select_query = f'select id, name, const_diversities_coordinates, dynamic_diversities_coordinates, '
+                select_query = 'select id, name, const_diversities_coordinates, dynamic_diversities_coordinates, '
                 select_query += f'reliability, module from version where module = {module_id}'
                 select_res = cur_conn.execute_query(select_query)
 
@@ -267,8 +236,12 @@ class NModule:
     def __init__(self, n_id: int = None, name: str = 'DefaultName', round_to: int = 6, min_out_val: int = 100, max_out_val: int = 1000):
         """
         NModule class constructor
-        :param name: Module name
-        :param round_to: Digits amount fallow after dot delimiter
+
+        :param n_id: Module id.
+        :param name: Module name.
+        :param round_to: Digits amount fallow after dot delimiter.
+        :param min_out_val: Minimum permissible value for generation count.
+        :param max_out_val: Maximum permissible value for generation count.
         """
         self._id = n_id 
         self.name = name
@@ -347,8 +320,7 @@ class NModule:
 
             max_val = matrix[0][0]
             for row in matrix:
-                if max(row) > max_val:
-                    max_val = max(row)
+                max_val = max(max(row), max_val)
 
             try:
                 for i in range(len(matrix)):
@@ -419,12 +391,11 @@ class NModule:
 
             self._versions_list.append(cur_new_version)
 
-    def get_version_by_id(self, id_4_search: int) -> NVersion:
+    def get_version_by_id(self, id_4_search: int) -> NVersion | None:
         for cur_ver in self._versions_list:
             if cur_ver.id is not None and cur_ver.id == id_4_search:
                 return cur_ver
-        else:
-            return None
+        return None
 
     def generate_experiment_data(self, iterations_amount: int, experiment_name: str) -> List:
         self._clear_previous_results()
